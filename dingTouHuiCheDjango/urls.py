@@ -18,6 +18,7 @@ from django.conf.urls import url
 from . import view
 
 urlpatterns = [
+    url('calculate/v2/', view.index),
     url('calculate/', view.hello),
 ]
 
