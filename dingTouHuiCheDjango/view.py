@@ -29,7 +29,7 @@ def index(request):
     try:
         zzcm = xa.fundinfo(code)
     except Exception:
-        return JsonResponse({'code': '500', 'msg': '基金代码错误'})
+        return JsonResponse({'code': 500, 'msg': '基金代码错误'})
     # 分红再投入
     zzcm.dividend_label = 1
     start = request.GET.get('start')
@@ -64,6 +64,7 @@ def index(request):
     dailyreport = cm_t3.dailyreport(end)
     xirr = cm_t3.xirrrate(end)
     return JsonResponse({
+        'code': 0,
         'xirr':xirr,
         'dailyreport': dailyreport.to_dict()
     })
