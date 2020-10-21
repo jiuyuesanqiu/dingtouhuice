@@ -107,8 +107,8 @@ def bitcoinBackTest(request):
         'https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
     json_data = r.json()
     bpi = json_data['bpi']
-    df = pd.DataFrame({'date': bpi.keys(), 'price': bpi.values(),
-                       'amount': [amount]*len(bpi.keys())})
+    df = pd.DataFrame(bpi.items(), columns=['date', 'price'])
+    df['amount'] = [amount]*len(bpi.keys())
     rng = pd.date_range(start, end, freq=freq)+pd.DateOffset(days=int(offset))
     rng = rng[rng <= end]  # 过滤超出结束时间的日期
     ds = rng.strftime("%Y-%m-%d").tolist()  # 下单日期列表
