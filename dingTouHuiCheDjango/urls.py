@@ -19,6 +19,7 @@ from . import view
 
 urlpatterns = [
     url('calculate/v2/', view.index),
+    url('backTest/btc/', view.bitcoinBackTest),
     url('calculate/', view.hello),
 ]
 
