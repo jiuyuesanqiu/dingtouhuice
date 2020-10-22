@@ -9,26 +9,8 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from datetime import datetime, timedelta
 
-requests_cache.install_cache('bitcoin_price', backend='sqlite', expire_after=43200)
-
-def hello(request):
-    code = request.GET.get('code')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-    amount = request.GET.get('amount')
-    period = request.GET.get('period')
-    if period == 'M':
-        freq = 'W-MON'
-    else:
-        freq = 'MS'
-    zzcm = xa.fundinfo(code)
-    # 分红再投入
-    zzcm.dividend_label = 1
-    auto = xa.policy.scheduled(
-        zzcm, int(amount), pd.date_range(start, end, freq=freq))
-    cm_t3 = xa.trade(zzcm, auto.status)
-    a = cm_t3.dailyreport(end)
-    return HttpResponse(a.to_json())
+requests_cache.install_cache(
+    'bitcoin_price', backend='sqlite', expire_after=43200)
 
 
 def index(request):
@@ -39,12 +21,19 @@ def index(request):
         return JsonResponse({'code': 500, 'msg': '基金代码错误'})
     # 分红再投入
     zzcm.dividend_label = 1
-    start = request.GET.get('start')
-    end = request.GET.get('end')
+    orgin_start = request.GET.get('start')
+    orgin_end = request.GET.get('end')
     amount = request.GET.get('amount')
     freq = request.GET.get('freq')
     offset = request.GET.get('offset')
-    rng = pd.date_range(start, end, freq=freq)+pd.DateOffset(days=int(offset))
+    start = datetime.strptime(orgin_start, '%Y-%m-%d')
+    end = datetime.strptime(orgin_end, '%Y-%m-%d')
+    new_start = start - timedelta(days=100)
+    new_end = end + timedelta(days=100)
+    rng = pd.date_range(new_start, new_end, freq=freq) + \
+        pd.DateOffset(days=int(offset))
+    rng = rng[rng <= end]  # 过滤超出范围的日期
+    rng = rng[rng >= start]
     price = zzcm.price[(zzcm.price["date"] >= start)
                        & (zzcm.price["date"] <= end)]
     # 有价格的起始日期
@@ -68,11 +57,19 @@ def index(request):
     status = pd.DataFrame(
         data={"date": datel, zzcm.code: [float(amount)]*len(datel)})
     cm_t3 = xa.trade(zzcm, status)
-    dailyreport = cm_t3.dailyreport(end)
-    xirr = cm_t3.xirrrate(end)
+    dailyreport = cm_t3.dailyreport(orgin_end)
+    print(cm_t3.cftable)
+    cftable = cm_t3.cftable
+    del cftable['share']
+    cftable['date'] = cftable['date'].astype('datetime64[ns]')
+    cash_flow = cftable.values.tolist()
+    fv = dailyreport['基金现值'][0]
+    cash_flow.append([end, fv])
+    rate = xirr(cash_flow)
+
     return JsonResponse({
         'code': 0,
-        'xirr': xirr,
+        'xirr': rate,
         'dailyreport': dailyreport.to_dict()
     })
 
@@ -104,8 +101,10 @@ def bitcoinBackTest(request):
     amount = float(request.GET.get('amount'))
     freq = request.GET.get('freq')
     offset = request.GET.get('offset')
-    payload = {'start': '2010-07-17', 'end': time.strftime("%Y-%m-%d",time.localtime())}
-    r = requests.get('https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
+    payload = {'start': '2010-07-17',
+               'end': time.strftime("%Y-%m-%d", time.localtime())}
+    r = requests.get(
+        'https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
     json_data = r.json()
     bpi = json_data['bpi']
     df = pd.DataFrame(bpi.items(), columns=['date', 'price'])
@@ -114,7 +113,8 @@ def bitcoinBackTest(request):
     end = datetime.strptime(end, '%Y-%m-%d')
     new_start = start - timedelta(days=100)
     new_end = end + timedelta(days=100)
-    rng = pd.date_range(new_start, new_end, freq=freq)+pd.DateOffset(days=int(offset))
+    rng = pd.date_range(new_start, new_end, freq=freq) + \
+        pd.DateOffset(days=int(offset))
     rng = rng[rng <= end]  # 过滤超出范围的日期
     rng = rng[rng >= start]
     ds = rng.strftime("%Y-%m-%d").tolist()  # 下单日期列表
