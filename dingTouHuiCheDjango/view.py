@@ -58,7 +58,6 @@ def index(request):
         data={"date": datel, zzcm.code: [float(amount)]*len(datel)})
     cm_t3 = xa.trade(zzcm, status)
     dailyreport = cm_t3.dailyreport(orgin_end)
-    print(cm_t3.cftable)
     cftable = cm_t3.cftable
     del cftable['share']
     cftable['date'] = cftable['date'].astype('datetime64[ns]')
