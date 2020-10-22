@@ -1,12 +1,15 @@
 import xalpha as xa
 import pandas as pd
+import json
+import requests
+import time
+import requests_cache
 # Create your views here.
 from django.http import HttpResponse
 from django.http import JsonResponse
-from datetime import datetime
-import json
-import requests
+from datetime import datetime, timedelta
 
+requests_cache.install_cache('bitcoin_price', backend='sqlite', expire_after=43200)
 
 def hello(request):
     code = request.GET.get('code')
@@ -101,16 +104,19 @@ def bitcoinBackTest(request):
     amount = float(request.GET.get('amount'))
     freq = request.GET.get('freq')
     offset = request.GET.get('offset')
-
-    payload = {'start': start, 'end': end}
-    r = requests.get(
-        'https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
+    payload = {'start': '2010-07-17', 'end': time.strftime("%Y-%m-%d",time.localtime())}
+    r = requests.get('https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
     json_data = r.json()
     bpi = json_data['bpi']
     df = pd.DataFrame(bpi.items(), columns=['date', 'price'])
     df['amount'] = [amount]*len(bpi.keys())
-    rng = pd.date_range(start, end, freq=freq)+pd.DateOffset(days=int(offset))
-    rng = rng[rng <= end]  # 过滤超出结束时间的日期
+    start = datetime.strptime(start, '%Y-%m-%d')
+    end = datetime.strptime(end, '%Y-%m-%d')
+    new_start = start - timedelta(days=100)
+    new_end = end + timedelta(days=100)
+    rng = pd.date_range(new_start, new_end, freq=freq)+pd.DateOffset(days=int(offset))
+    rng = rng[rng <= end]  # 过滤超出范围的日期
+    rng = rng[rng >= start]
     ds = rng.strftime("%Y-%m-%d").tolist()  # 下单日期列表
 
     order_df = df[df['date'].isin(ds)]
