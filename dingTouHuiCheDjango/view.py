@@ -108,14 +108,14 @@ def bitcoinBackTest(request):
     bpi = json_data['bpi']
     df = pd.DataFrame(bpi.items(), columns=['date', 'price'])
     df['amount'] = [amount]*len(bpi.keys())
-    start = datetime.strptime(start, '%Y-%m-%d')
-    end = datetime.strptime(end, '%Y-%m-%d')
-    new_start = start - timedelta(days=100)
-    new_end = end + timedelta(days=100)
+    start_time = datetime.strptime(start, '%Y-%m-%d')
+    end_time = datetime.strptime(end, '%Y-%m-%d')
+    new_start = start_time - timedelta(days=100)
+    new_end = end_time + timedelta(days=100)
     rng = pd.date_range(new_start, new_end, freq=freq) + \
         pd.DateOffset(days=int(offset))
-    rng = rng[rng <= end]  # 过滤超出范围的日期
-    rng = rng[rng >= start]
+    rng = rng[rng <= end_time]  # 过滤超出范围的日期
+    rng = rng[rng >= start_time]
     ds = rng.strftime("%Y-%m-%d").tolist()  # 下单日期列表
 
     order_df = df[df['date'].isin(ds)]
@@ -123,7 +123,7 @@ def bitcoinBackTest(request):
     total_principal = order_df['amount'].sum()
     coinNum = order_df['amount']/order_df['price']
     # 现值
-    fv = df.iloc[[-1]]['price'].array[0]*coinNum.sum()
+    fv = df[df['date'] == end]['price'].array[0]*coinNum.sum()
     # 总收益
     total_interest = fv - total_principal
     # 收益率
@@ -133,7 +133,6 @@ def bitcoinBackTest(request):
     order_df['date'] = order_df['date'].astype('datetime64[ns]')
     order_df['amount'] = order_df['amount'] * (-1)
     cash_flow = order_df.values.tolist()
-    end_date = df.iloc[[-1]]['date'].astype('datetime64[ns]').array[0]
-    cash_flow.append([end_date, fv])
+    cash_flow.append([end_time, fv])
     rate = xirr(cash_flow)
     return JsonResponse({'code': 0, 'data': {'fv': fv, 'total_principal': total_principal, 'total_interest': total_interest, 'total_rate': total_rate, 'xirr': rate}})
