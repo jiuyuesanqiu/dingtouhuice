@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 
 requests_cache.install_cache(
-    'bitcoin_price', backend='sqlite', expire_after=43200)
+    'bitcoin_price', backend='sqlite', expire_after=3600)
 
 
 def index(request):
