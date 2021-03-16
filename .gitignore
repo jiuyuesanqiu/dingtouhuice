@@ -1,2 +1,5 @@
 /dingTouHuiCheDjango/__pycache__
 *.sqlite
+.vscode
+.ipynb*
+*.ipynb

@@ -3,14 +3,31 @@ import pandas as pd
 import json
 import requests
 import time
-import requests_cache
 # Create your views here.
 from django.http import HttpResponse
 from django.http import JsonResponse
 from datetime import datetime, timedelta
+from django.core.cache import cache
 
-requests_cache.install_cache(
-    'bitcoin_price', backend='sqlite', expire_after=3600)
+
+def requestBtcData():
+    payload = {'start': '2010-07-17',
+               'end': time.strftime("%Y-%m-%d", time.localtime())}
+    r = requests.get(
+        'https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
+    json_data = r.json()
+    cache.set("btcData", json_data)
+    return json_data
+
+
+def getBtcHistoryData():
+    btcData = cache.get('btcData')
+    print(btcData)
+    if btcData == None:
+        json_data = requestBtcData()
+        return json_data
+    else:
+        return btcData
 
 
 def index(request):
@@ -131,6 +148,50 @@ def bitcoinBackTest(request):
     # xirr
     del order_df['price']
     order_df['date'] = order_df['date'].astype('datetime64[ns]')
+    order_df['amount'] = order_df['amount'] * (-1)
+    cash_flow = order_df.values.tolist()
+    cash_flow.append([end_time, fv])
+    rate = xirr(cash_flow)
+    return JsonResponse({'code': 0, 'data': {'fv': fv, 'total_principal': total_principal, 'total_interest': total_interest, 'total_rate': total_rate, 'xirr': rate}})
+
+
+def boxBackTest(request):
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    amount = float(request.GET.get('amount'))
+    freq = request.GET.get('freq')
+    offset = request.GET.get('offset')
+    fund = requests.get('https://etf-api.b.watch/funds')
+    fund = fund.json()
+    id = fund['data'][0]['id']
+    r = requests.get(f'https://etf-api.b.watch/fund/{id}/line-charts?type=2')
+    json_data = r.json()
+    data = json_data['data']
+    df = pd.DataFrame.from_records(data)
+    df['amount'] = [amount]*len(data)
+    start_time = datetime.strptime(start, '%Y-%m-%d')
+    end_time = datetime.strptime(end, '%Y-%m-%d')
+    new_start = start_time - timedelta(days=100)
+    new_end = end_time + timedelta(days=100)
+    rng = pd.date_range(new_start, new_end, freq=freq) + \
+        pd.DateOffset(days=int(offset))
+    rng = rng[rng <= end_time]  # 过滤超出范围的日期
+    rng = rng[rng >= start_time]
+    ds = rng.strftime("%Y-%m-%d").tolist()  # 下单日期列表
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+    order_df = df[df['timestamp'].isin(ds)]
+    # 总投入
+    total_principal = order_df['amount'].sum()
+    coinNum = order_df['amount']/order_df['price'].astype('float64')
+    # 现值
+    fv = float(df[df['timestamp'] == end]['price'].array[0])*coinNum.sum()
+    # 总收益
+    total_interest = fv - total_principal
+    # 收益率
+    total_rate = total_interest / total_principal
+    # xirr
+    del order_df['price']
+    order_df['timestamp'] = order_df['timestamp'].astype('datetime64[ns]')
     order_df['amount'] = order_df['amount'] * (-1)
     cash_flow = order_df.values.tolist()
     cash_flow.append([end_time, fv])
