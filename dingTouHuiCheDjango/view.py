@@ -35,7 +35,7 @@ def getBtcHistoryData():
     if btcData == None:
         print("没数据")
         json_data = requestBtcData()
-        return json_data
+        return json_data['bpi']
     else:
         return btcData['bpi']
 def getBoxHistoryData():
