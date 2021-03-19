@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_crontab',
-    'django_apscheduler'
+    'django_apscheduler',
+    'taskScheduler'
 ]
 
 MIDDLEWARE = [
@@ -72,7 +73,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'dingTouHuiCheDjango.wsgi.application'
 
-
+APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
+APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Seconds
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
@@ -121,3 +123,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'djpymemcache.backend.PyMemcacheCache',
+        'LOCATION': [
+           '127.0.0.1:11211',
+        ],
+    },
+}

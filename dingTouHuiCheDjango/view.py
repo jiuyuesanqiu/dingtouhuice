@@ -8,6 +8,10 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from datetime import datetime, timedelta
 from django.core.cache import cache
+import json
+from pymemcache.client.base import Client
+from pymemcache import serde
+client = Client('localhost', serde=serde.pickle_serde)
 
 
 def requestBtcData():
@@ -16,18 +20,32 @@ def requestBtcData():
     r = requests.get(
         'https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
     json_data = r.json()
-    cache.set("btcData", json_data)
+    client.set("btcData", json_data)
     return json_data
 
+def requestBoxData():
+    r = requests.get(
+        'https://etf-api.b.watch/fund/f5ef6b5d-cc5a-3d90-b2c0-a2fd386e7a3c/line-charts?type=2')
+    json_data = r.json()
+    client.set("boxData", json_data)
+    return json_data
 
 def getBtcHistoryData():
-    btcData = cache.get('btcData')
-    print(btcData)
+    btcData = client.get('btcData')
     if btcData == None:
+        print("没数据")
         json_data = requestBtcData()
         return json_data
     else:
-        return btcData
+        return btcData['bpi']
+def getBoxHistoryData():
+    boxData = client.get('boxData')
+    if boxData == None:
+        print("没数据")
+        json_data = requestBoxData()
+        return json_data
+    else:
+        return boxData
 
 
 def index(request):
@@ -117,12 +135,7 @@ def bitcoinBackTest(request):
     amount = float(request.GET.get('amount'))
     freq = request.GET.get('freq')
     offset = request.GET.get('offset')
-    payload = {'start': '2010-07-17',
-               'end': time.strftime("%Y-%m-%d", time.localtime())}
-    r = requests.get(
-        'https://api.coindesk.com/v1/bpi/historical/close.json', params=payload)
-    json_data = r.json()
-    bpi = json_data['bpi']
+    bpi = getBtcHistoryData()
     df = pd.DataFrame(bpi.items(), columns=['date', 'price'])
     df['amount'] = [amount]*len(bpi.keys())
     start_time = datetime.strptime(start, '%Y-%m-%d')
@@ -140,7 +153,7 @@ def bitcoinBackTest(request):
     total_principal = order_df['amount'].sum()
     coinNum = order_df['amount']/order_df['price']
     # 现值
-    fv = df[df['date'] == end]['price'].array[0]*coinNum.sum()
+    fv = df.tail(1)['price'].iloc[0]*coinNum.sum()
     # 总收益
     total_interest = fv - total_principal
     # 收益率
@@ -161,11 +174,7 @@ def boxBackTest(request):
     amount = float(request.GET.get('amount'))
     freq = request.GET.get('freq')
     offset = request.GET.get('offset')
-    fund = requests.get('https://etf-api.b.watch/funds')
-    fund = fund.json()
-    id = fund['data'][0]['id']
-    r = requests.get(f'https://etf-api.b.watch/fund/{id}/line-charts?type=2')
-    json_data = r.json()
+    json_data = getBoxHistoryData()
     data = json_data['data']
     df = pd.DataFrame.from_records(data)
     df['amount'] = [amount]*len(data)
