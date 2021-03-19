@@ -12,7 +12,7 @@ import time
 import requests
 from pymemcache.client.base import Client
 from pymemcache import serde
-client = Client('localhost', serde=serde.pickle_serde)
+client = Client('127.0.0.1', serde=serde.pickle_serde)
 
 
 logger = logging.getLogger(__name__)
@@ -49,8 +49,8 @@ class Command(BaseCommand):
 
         scheduler.add_job(
             requestBoxData,
-            # trigger=CronTrigger.from_crontab('1 0 * * *'),
-            trigger=CronTrigger(second="*/10"),  # Every 10 seconds
+            trigger=CronTrigger.from_crontab('1 0 * * *'),
+            # trigger=CronTrigger(second="*/10"),  # Every 10 seconds
             id="getBox",
             max_instances=1,
             replace_existing=True,

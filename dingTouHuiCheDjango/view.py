@@ -11,7 +11,7 @@ from django.core.cache import cache
 import json
 from pymemcache.client.base import Client
 from pymemcache import serde
-client = Client('localhost', serde=serde.pickle_serde)
+client = Client('127.0.0.1', serde=serde.pickle_serde)
 
 
 def requestBtcData():
